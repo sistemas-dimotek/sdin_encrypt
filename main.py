@@ -1,6 +1,6 @@
 import os
 from ast import literal_eval
-from schedule import clear, run_pending, every
+import schedule
 import time
 import xmlrpc.client
 import json
@@ -170,7 +170,7 @@ def programar_tareas_diarias():
     logger.info("Programando tareas diarias")
 
     # Limpiar todas las tareas programadas anteriormente
-    clear()
+    # schedule.clear()
 
     # Programar cada categoría con un intervalo de 20 minutos
     for i, categoria_id in enumerate(CATEGORIAS_IDS):
@@ -183,10 +183,10 @@ def programar_tareas_diarias():
         logger.info(f"Programando categoría {categoria_id} para ejecutarse a las {tiempo_ejecucion}")
 
         # Programar la tarea a una hora específica
-        every().day.at(tiempo_ejecucion).do(consultar_y_enviar, categoria_id=categoria_id)
+        schedule.every().day.at(tiempo_ejecucion).do(consultar_y_enviar, categoria_id=categoria_id)
 
     # Programar la función para reprogramar las tareas al día siguiente
-    every().day.at("00:00").do(programar_tareas_diarias).tag('daily')
+    schedule.every().day.at("00:00").do(programar_tareas_diarias).tag('daily')
 
 
 # Función principal
@@ -200,7 +200,7 @@ def main():
 
         # Bucle principal para ejecutar las tareas programadas
         while True:
-            run_pending()
+            schedule.run_pending()
             time.sleep(60)  # Verificar cada minuto en lugar de cada segundo para reducir carga
 
     except KeyboardInterrupt:

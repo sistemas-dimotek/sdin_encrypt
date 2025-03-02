@@ -225,4 +225,5 @@ def main():
 
 
 if __name__ == "__main__":
+    logger.info("Iniciando main.py...")
     main()

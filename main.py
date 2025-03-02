@@ -210,13 +210,13 @@ def log_event(event_type, message, extra=None):
 
 def main():
     try:
-        while True:
-            for categoria_id in CATEGORIAS_IDS:
-                logger.info(f"Ejecutando categoría {categoria_id}")
-                consultar_y_enviar(categoria_id)
-                logger.info(f"Termino categoría {categoria_id}, esperando 20m")
-                # Esperar 20 minutos (1200 segundos)
-                time.sleep(60)
+        for categoria_id in CATEGORIAS_IDS:
+            logger.info(f"Ejecutando categoría {categoria_id}")
+            consultar_y_enviar(categoria_id)
+            logger.info(f"Termino categoría {categoria_id}, esperando 20m")
+            # Esperar 20 minutos (1200 segundos)
+            time.sleep(1200)
+        logger.info("Ciclo completado, deteniendo servicio")
     except KeyboardInterrupt:
         logger.info("Servicio detenido por el usuario")
     except Exception as e:

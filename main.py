@@ -1,7 +1,5 @@
 import os
 from ast import literal_eval
-from schedule import *
-import schedule
 import time
 import xmlrpc.client
 import json
@@ -167,43 +165,58 @@ def log_event(event_type, message, extra=None):
 
 
 # Función para programar las tareas con intervalos de 20 minutos
-def programar_tareas_diarias():
-    logger.info("Programando tareas diarias")
-
-    # Limpiar todas las tareas programadas anteriormente
-    schedule.clear()
-
-    # Programar cada categoría con un intervalo de 20 minutos
-    for i, categoria_id in enumerate(CATEGORIAS_IDS):
-        # Calcular el tiempo de ejecución (cada 20 minutos)
-        minutos = i * 20
-        hora = minutos // 60
-        minuto = minutos % 60
-
-        tiempo_ejecucion = f"{hora:02d}:{minuto:02d}"
-        logger.info(f"Programando categoría {categoria_id} para ejecutarse a las {tiempo_ejecucion}")
-
-        # Programar la tarea a una hora específica
-        schedule.every().day.at(tiempo_ejecucion).do(consultar_y_enviar, categoria_id=categoria_id)
-
-    # Programar la función para reprogramar las tareas al día siguiente
-    schedule.every().day.at("00:00").do(programar_tareas_diarias).tag('daily')
+# def programar_tareas_diarias():
+#     logger.info("Programando tareas diarias")
+#
+#     # Limpiar todas las tareas programadas anteriormente
+#     schedule.clear()
+#
+#     # Programar cada categoría con un intervalo de 20 minutos
+#     for i, categoria_id in enumerate(CATEGORIAS_IDS):
+#         # Calcular el tiempo de ejecución (cada 20 minutos)
+#         minutos = i * 20
+#         hora = minutos // 60
+#         minuto = minutos % 60
+#
+#         tiempo_ejecucion = f"{hora:02d}:{minuto:02d}"
+#         logger.info(f"Programando categoría {categoria_id} para ejecutarse a las {tiempo_ejecucion}")
+#
+#         # Programar la tarea a una hora específica
+#         schedule.every().day.at(tiempo_ejecucion).do(consultar_y_enviar, categoria_id=categoria_id)
+#
+#     # Programar la función para reprogramar las tareas al día siguiente
+#     schedule.every().day.at("00:00").do(programar_tareas_diarias).tag('daily')
 
 
 # Función principal
+# def main():
+#     try:
+#         log_event("SERVICE_START", "Iniciando servicio de sincronización de inventario")
+#         logger.info("Iniciando servicio de sincronización de inventario")
+#
+#         # Programar las tareas iniciales
+#         programar_tareas_diarias()
+#
+#         # Bucle principal para ejecutar las tareas programadas
+#         while True:
+#             schedule.run_pending()
+#             time.sleep(60)  # Verificar cada minuto en lugar de cada segundo para reducir carga
+#
+#     except KeyboardInterrupt:
+#         logger.info("Servicio detenido por el usuario")
+#     except Exception as e:
+#         logger.error(f"Error en el servicio principal: {str(e)}")
+#         raise
+
 def main():
     try:
-        log_event("SERVICE_START", "Iniciando servicio de sincronización de inventario")
-        logger.info("Iniciando servicio de sincronización de inventario")
-
-        # Programar las tareas iniciales
-        programar_tareas_diarias()
-
-        # Bucle principal para ejecutar las tareas programadas
         while True:
-            schedule.run_pending()
-            time.sleep(60)  # Verificar cada minuto en lugar de cada segundo para reducir carga
-
+            for categoria_id in CATEGORIAS_IDS:
+                logger.info(f"Ejecutando categoría {categoria_id}")
+                consultar_y_enviar(categoria_id)
+                logger.info(f"Termino categoría {categoria_id}, esperando 20m")
+                # Esperar 20 minutos (1200 segundos)
+                time.sleep(1200)
     except KeyboardInterrupt:
         logger.info("Servicio detenido por el usuario")
     except Exception as e:

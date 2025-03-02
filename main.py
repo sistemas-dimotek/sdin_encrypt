@@ -1,18 +1,18 @@
-import schedule
-import time
+import os
+import sys
+import logging
 import xmlrpc.client
 import json
-import logging
-import os
-from ast import literal_eval
 from datetime import datetime
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import padding
+from fastapi import FastAPI, BackgroundTasks
+import uvicorn
+import schedule
+import time
 from dotenv import load_dotenv
 from zeep import Client
-
-load_dotenv()
 
 # Configurar logging para Railway (envía todo a stdout)
 logging.basicConfig(
@@ -23,6 +23,20 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+app = FastAPI()
+
+
+def string_to_bytes(s):
+    if s is None:
+        logger.error("La variable de entorno no está definida")
+        sys.exit(1)
+    try:
+        return bytes([int(x) for x in s.split(',')])
+    except ValueError as e:
+        logger.error(f"Error al convertir la cadena a bytes: {e}")
+        sys.exit(1)
+
 
 # Datos de conexión a Odoo
 ODOO_CONFIG = {
@@ -36,9 +50,22 @@ ODOO_CONFIG = {
 SOAP_CONFIG = {
     'wsdl_url': os.getenv('SOAP_WSDL_URL'),
     'numero_cliente': os.getenv('SOAP_NUMERO_CLIENTE'),
-    'bytes_key': bytes([234, 158, 85, 45, 177, 188, 141, 223, 139, 93, 161, 26, 190, 189, 165, 39, 87, 141, 83, 164, 172, 90, 146, 132, 7, 25, 167, 70, 202, 184, 24, 89]),
+    'bytes_key': bytes(
+        [234, 158, 85, 45, 177, 188, 141, 223, 139, 93, 161, 26, 190, 189, 165, 39, 87, 141, 83, 164, 172, 90, 146, 132,
+         7, 25, 167, 70, 202, 184, 24, 89]),
     'bytes_iv': bytes([130, 202, 183, 106, 180, 87, 144, 76, 119, 2, 80, 225, 171, 165, 208, 122])
 }
+
+# Verificar que todas las variables de entorno necesarias estén definidas
+required_env_vars = [
+    'ODOO_URL', 'ODOO_DB', 'ODOO_USERNAME', 'ODOO_PASSWORD',
+    'SOAP_WSDL_URL', 'SOAP_NUMERO_CLIENTE'
+]
+
+for var in required_env_vars:
+    if os.getenv(var) is None:
+        logger.error(f"La variable de entorno {var} no está definida")
+        sys.exit(1)
 
 # Lista de IDs de categorías
 CATEGORIAS_IDS = [61, 58, 64, 59, 82, 77, 109, 73]
@@ -213,6 +240,17 @@ def main():
         raise
 
 
-if __name__ == "__main__":
-    main()
+@app.get("/")
+async def root():
+    return {"message": "Servicio de sincronización de inventario"}
 
+
+@app.post("/sync")
+async def sync(background_tasks: BackgroundTasks):
+    background_tasks.add_task(main)
+    return {"message": "Sincronización iniciada en segundo plano"}
+
+
+if __name__ == "__main__":
+    load_dotenv()
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))

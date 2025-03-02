@@ -1,18 +1,14 @@
 import os
-import sys
-import logging
+from ast import literal_eval
+import schedule
+import time
 import xmlrpc.client
 import json
-from ast import literal_eval
+import logging
 from datetime import datetime
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import padding
-from fastapi import FastAPI, BackgroundTasks
-import uvicorn
-import schedule
-import time
-from dotenv import load_dotenv
 from zeep import Client
 
 # Configurar logging para Railway (envía todo a stdout)
@@ -24,20 +20,6 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
-
-app = FastAPI()
-
-
-def string_to_bytes(s):
-    if s is None:
-        logger.error("La variable de entorno no está definida")
-        sys.exit(1)
-    try:
-        return bytes([int(x) for x in s.split(',')])
-    except ValueError as e:
-        logger.error(f"Error al convertir la cadena a bytes: {e}")
-        sys.exit(1)
-
 
 # Datos de conexión a Odoo
 ODOO_CONFIG = {
@@ -54,17 +36,6 @@ SOAP_CONFIG = {
     'bytes_key': bytes(literal_eval(os.getenv('SOAP_BYTES_KEY'))),
     'bytes_iv': bytes(literal_eval(os.getenv('SOAP_BYTES_IV')))
 }
-
-# Verificar que todas las variables de entorno necesarias estén definidas
-required_env_vars = [
-    'ODOO_URL', 'ODOO_DB', 'ODOO_USERNAME', 'ODOO_PASSWORD',
-    'SOAP_WSDL_URL', 'SOAP_NUMERO_CLIENTE'
-]
-
-for var in required_env_vars:
-    if os.getenv(var) is None:
-        logger.error(f"La variable de entorno {var} no está definida")
-        sys.exit(1)
 
 # Lista de IDs de categorías
 CATEGORIAS_IDS = [61, 58, 64, 59, 82, 77, 109, 73]
@@ -239,17 +210,5 @@ def main():
         raise
 
 
-@app.get("/")
-async def root():
-    return {"message": "Servicio de sincronización de inventario"}
-
-
-@app.post("/sync")
-async def sync(background_tasks: BackgroundTasks):
-    background_tasks.add_task(main)
-    return {"message": "Sincronización iniciada en segundo plano"}
-
-
 if __name__ == "__main__":
-    load_dotenv()
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+    main()

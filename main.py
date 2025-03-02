@@ -4,13 +4,13 @@ import xmlrpc.client
 import json
 import logging
 import os
+from ast import literal_eval
 from datetime import datetime
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import padding
 from dotenv import load_dotenv
 from zeep import Client
-
 
 load_dotenv()
 
@@ -24,9 +24,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def string_to_bytes(s):
-    return bytes([int(x) for x in s.split(',')])
-
 # Datos de conexión a Odoo
 ODOO_CONFIG = {
     'url': os.getenv('ODOO_URL'),
@@ -39,8 +36,8 @@ ODOO_CONFIG = {
 SOAP_CONFIG = {
     'wsdl_url': os.getenv('SOAP_WSDL_URL'),
     'numero_cliente': os.getenv('SOAP_NUMERO_CLIENTE'),
-    'bytes_key': string_to_bytes(os.getenv('SOAP_BYTES_KEY')),
-    'bytes_iv': string_to_bytes(os.getenv('SOAP_BYTES_IV'))
+    'bytes_key': bytes([234, 158, 85, 45, 177, 188, 141, 223, 139, 93, 161, 26, 190, 189, 165, 39, 87, 141, 83, 164, 172, 90, 146, 132, 7, 25, 167, 70, 202, 184, 24, 89]),
+    'bytes_iv': bytes([130, 202, 183, 106, 180, 87, 144, 76, 119, 2, 80, 225, 171, 165, 208, 122])
 }
 
 # Lista de IDs de categorías

@@ -216,7 +216,7 @@ def main():
                 consultar_y_enviar(categoria_id)
                 logger.info(f"Termino categoría {categoria_id}, esperando 20m")
                 # Esperar 20 minutos (1200 segundos)
-                time.sleep(1200)
+                time.sleep(300)
     except KeyboardInterrupt:
         logger.info("Servicio detenido por el usuario")
     except Exception as e:

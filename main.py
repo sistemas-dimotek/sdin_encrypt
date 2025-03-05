@@ -112,8 +112,8 @@ def consultar_y_enviar(categoria_id):
                 "ProductoId": product['default_code'],
                 "PartNumber": product['default_code'],
                 "NetExistence": product['qty_available'],
-                "StoreLocation": "GUADALAJARA, JALISCO",
-                "StoreName": "PRUEBA",
+                "StoreLocation": "QUERETARO, QUERETARO",
+                "StoreName": "CEDIS QUERETARO",
                 "DateExtraction": datetime.now().isoformat()
             }
             inventory.append(item)

@@ -75,51 +75,63 @@ def conectar_odoo():
         raise
 
 
-# Función para consultar productos de una categoría y enviar datos
-def consultar_y_enviar(categoria_id):
-    logger.info(f"Iniciando consulta para categoría ID: {categoria_id}")
+# Función para consultar productos de todas las categorías y enviar datos en un solo lote
+def consultar_y_enviar_todas_categorias():
+    logger.info(f"Iniciando consulta para todas las categorías: {CATEGORIAS_IDS}")
 
     try:
         # Conectar a Odoo
         uid, models = conectar_odoo()
 
-        # Definir el dominio para filtrar por categoría específica y productos con existencia
-        domain = [('categ_id', '=', categoria_id), ('qty_available', '>', 0)]
-        fields = ['name', 'default_code', 'qty_available']
+        # Lista para almacenar todos los productos de todas las categorías
+        all_inventory = []
+        total_products = 0
 
-        # Realizar la búsqueda en Odoo
-        products = models.execute_kw(
-            ODOO_CONFIG['db'],
-            uid,
-            ODOO_CONFIG['password'],
-            'product.product',
-            'search_read',
-            [domain],
-            {'fields': fields}
-        )
+        # Iterar sobre cada categoría para obtener sus productos
+        for categoria_id in CATEGORIAS_IDS:
+            logger.info(f"Consultando productos para categoría ID: {categoria_id}")
 
-        logger.info(f"Encontrados {len(products)} productos con existencia en categoría {categoria_id}")
+            # Definir el dominio para filtrar por categoría específica y productos con existencia
+            domain = [('categ_id', '=', categoria_id), ('qty_available', '>', 0)]
+            fields = ['name', 'default_code', 'qty_available']
 
-        if not products:
-            logger.info(f"No hay productos con existencia en la categoría {categoria_id}")
+            # Realizar la búsqueda en Odoo
+            products = models.execute_kw(
+                ODOO_CONFIG['db'],
+                uid,
+                ODOO_CONFIG['password'],
+                'product.product',
+                'search_read',
+                [domain],
+                {'fields': fields}
+            )
+
+            logger.info(f"Encontrados {len(products)} productos con existencia en categoría {categoria_id}")
+
+            # Preparar los datos para cada producto
+            for product in products:
+                item = {
+                    "CustomerNumberSAP": SOAP_CONFIG['numero_cliente'],
+                    "ProductoId": product['default_code'],
+                    "PartNumber": product['default_code'],
+                    "NetExistence": product['qty_available'],
+                    "StoreLocation": "QUERETARO, QUERETARO",
+                    "StoreName": "CEDIS QUERETARO",
+                    "DateExtraction": datetime.now().isoformat()
+                }
+                all_inventory.append(item)
+
+            total_products += len(products)
+
+        # Verificar si hay productos para enviar
+        if not all_inventory:
+            logger.info("No hay productos con existencia en ninguna categoría")
             return
 
-        # Preparar los datos para enviar
-        inventory = []
-        for product in products:
-            item = {
-                "CustomerNumberSAP": SOAP_CONFIG['numero_cliente'],
-                "ProductoId": product['default_code'],
-                "PartNumber": product['default_code'],
-                "NetExistence": product['qty_available'],
-                "StoreLocation": "QUERETARO, QUERETARO",
-                "StoreName": "CEDIS QUERETARO",
-                "DateExtraction": datetime.now().isoformat()
-            }
-            inventory.append(item)
+        logger.info(f"Total de productos recopilados de todas las categorías: {total_products}")
 
-        # Convertir la lista de objetos a JSON string
-        cadena_json = json.dumps(inventory)
+        # Convertir la lista completa de objetos a JSON string
+        cadena_json = json.dumps(all_inventory)
 
         # Convertir a bytes y cifrar
         cadena_json_codificada = cadena_json.encode('utf-8')
@@ -129,22 +141,22 @@ def consultar_y_enviar(categoria_id):
             SOAP_CONFIG['bytes_iv']
         )
 
-        # Llamar al servicio SOAP
+        # Llamar al servicio SOAP una sola vez con todos los datos
         cliente_servicio = Client(SOAP_CONFIG['wsdl_url'])
         resultado_servicio = cliente_servicio.service.RegisterPartnerInventoryT(
             SOAP_CONFIG['numero_cliente'],
             cadena_json_cifrada
         )
 
-        log_event("SYNC_SUCCESS", f"Sincronización exitosa para categoría {categoria_id}",
-                  {"category_id": categoria_id, "products_count": len(products)})
+        log_event("SYNC_SUCCESS", f"Sincronización exitosa para todas las categorías",
+                  {"categories": CATEGORIAS_IDS, "products_count": total_products})
 
-        logger.info(f"Datos enviados para la categoría {categoria_id}. Resultado: {resultado_servicio}")
+        logger.info(f"Datos enviados para todas las categorías. Resultado: {resultado_servicio}")
 
     except Exception as e:
-        log_event("SYNC_ERROR", f"Error al procesar la categoría {categoria_id}",
-                  {"category_id": categoria_id, "error": str(e)})
-        logger.error(f"Error al procesar la categoría {categoria_id}: {str(e)}")
+        log_event("SYNC_ERROR", f"Error al procesar las categorías",
+                  {"categories": CATEGORIAS_IDS, "error": str(e)})
+        logger.error(f"Error al procesar las categorías: {str(e)}")
 
 
 def log_event(event_type, message, extra=None):
@@ -164,59 +176,17 @@ def log_event(event_type, message, extra=None):
     print(json.dumps(log_data))
 
 
-# Función para programar las tareas con intervalos de 20 minutos
-# def programar_tareas_diarias():
-#     logger.info("Programando tareas diarias")
-#
-#     # Limpiar todas las tareas programadas anteriormente
-#     schedule.clear()
-#
-#     # Programar cada categoría con un intervalo de 20 minutos
-#     for i, categoria_id in enumerate(CATEGORIAS_IDS):
-#         # Calcular el tiempo de ejecución (cada 20 minutos)
-#         minutos = i * 20
-#         hora = minutos // 60
-#         minuto = minutos % 60
-#
-#         tiempo_ejecucion = f"{hora:02d}:{minuto:02d}"
-#         logger.info(f"Programando categoría {categoria_id} para ejecutarse a las {tiempo_ejecucion}")
-#
-#         # Programar la tarea a una hora específica
-#         schedule.every().day.at(tiempo_ejecucion).do(consultar_y_enviar, categoria_id=categoria_id)
-#
-#     # Programar la función para reprogramar las tareas al día siguiente
-#     schedule.every().day.at("00:00").do(programar_tareas_diarias).tag('daily')
-
-
-# Función principal
-# def main():
-#     try:
-#         log_event("SERVICE_START", "Iniciando servicio de sincronización de inventario")
-#         logger.info("Iniciando servicio de sincronización de inventario")
-#
-#         # Programar las tareas iniciales
-#         programar_tareas_diarias()
-#
-#         # Bucle principal para ejecutar las tareas programadas
-#         while True:
-#             schedule.run_pending()
-#             time.sleep(60)  # Verificar cada minuto en lugar de cada segundo para reducir carga
-#
-#     except KeyboardInterrupt:
-#         logger.info("Servicio detenido por el usuario")
-#     except Exception as e:
-#         logger.error(f"Error en el servicio principal: {str(e)}")
-#         raise
-
 def main():
     try:
-        for categoria_id in CATEGORIAS_IDS:
-            logger.info(f"Ejecutando categoría {categoria_id}")
-            consultar_y_enviar(categoria_id)
-            logger.info(f"Termino categoría {categoria_id}, esperando 20m")
-            # Esperar 20 minutos (1200 segundos)
-            time.sleep(60)
-        logger.info("Ciclo completado, deteniendo servicio")
+        logger.info("Iniciando servicio de sincronización de inventario")
+        log_event("SERVICE_START", "Iniciando servicio de sincronización de inventario")
+
+        # Ejecutar la consulta y envío de todas las categorías en un solo lote
+        consultar_y_enviar_todas_categorias()
+
+        logger.info("Proceso completado, deteniendo servicio")
+        log_event("SERVICE_COMPLETE", "Proceso de sincronización completado")
+
     except KeyboardInterrupt:
         logger.info("Servicio detenido por el usuario")
     except Exception as e:
